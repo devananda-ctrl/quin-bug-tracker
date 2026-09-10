@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quin QA - Bugs Only Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --card-bg: #121827;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-blue: #2563eb;
+      --accent-cyan: #00f2fe;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-orange: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --text-main: #f0f4f8;
+      --text-muted: #8e9bb0;
+      --input-bg: #1a2234;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; font-size: 14px; padding: 1.5rem; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-dark); }
+    ::-webkit-scrollbar-thumb { background: #2a364f; border-radius: 4px; }
+
+    .container { max-width: 1440px; margin: 0 auto; }
+
+    /* Header Bar */
+    .header {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .brand { display: flex; align-items: center; gap: 0.75rem; }
+    .brand-logo {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      color: #090d16;
+      font-weight: 900;
+      font-size: 1.1rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 8px;
+      letter-spacing: 1px;
+    }
+    .brand-title { font-size: 1.3rem; font-weight: 800; color: #fff; }
+    .brand-sub { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* CENTER PULL REFRESH BUTTON */
+    .refresh-center-bar {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(0, 242, 254, 0.08));
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 14px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .btn-refresh {
+      background: linear-gradient(135deg, #2563eb, #00f2fe);
+      color: #090d16;
+      border: none;
+      padding: 0.85rem 2rem;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+    }
+    .btn-refresh:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 20px rgba(0, 242, 254, 0.4); }
+    .btn-refresh:active { transform: translateY(0); }
+    .btn-refresh.spinning .icon { animation: spin 1s infinite linear; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    .sync-status { font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
+    .status-dot.syncing { background: #f59e0b; animation: pulse 1s infinite alternate; }
+    @keyframes pulse { 0% { opacity: 0.4; } 100% { opacity: 1; } }
+
+    /* Summary Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stat-val { font-size: 1.6rem; font-weight: 800; }
+    .stat-lbl { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* Filters Bar */
+    .filters-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .search-input {
+      flex: 1;
+      min-width: 260px;
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .search-input:focus { border-color: #38bdf8; }
+
+    .platform-pills { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .pill-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .pill-btn:hover { color: #fff; border-color: rgba(255, 255, 255, 0.2); }
+    .pill-btn.active { background: linear-gradient(135deg, rgba(37, 99, 235, 0.3), rgba(0, 242, 254, 0.15)); color: #38bdf8; border-color: #38bdf8; }
+
+    .select-filter {
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 0.55rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    /* Table */
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .table { width: 100%; border-collapse: collapse; text-align: left; }
+    .table th {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 0.9rem 1.1rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .table td {
+      padding: 0.9rem 1.1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.88rem;
+      vertical-align: middle;
+    }
+    .table tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+    /* Badges */
+    .bug-key { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 0.25rem 0.55rem; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.25); display: inline-block; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+    .badge-critical { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .badge-high { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-medium { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .badge-low { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+
+    .env-tag { font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; }
+    .env-tag.prod { color: #34d399; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .env-tag.dev { color: #fbbf24; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); }
+
+    /* Modal Drawer */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+    .modal-overlay.active { display: flex; }
+    .modal-box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; width: 100%; max-width: 650px; max-height: 85vh; overflow-y: auto; padding: 1.5rem; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--card-border); }
+    .close-btn { background: transparent; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="brand-logo">QUIN</div>
+        <div>
+          <div class="brand-title">Bug Tracker Viewer</div>
+          <div class="brand-sub">Simple Live QA Bug Sheet</div>
+        </div>
+      </div>
+      <div class="sync-status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Ready to sync</span>
+      </div>
+    </header>
+
+    <!-- CENTER PULL REFRESH BAR -->
+    <div class="refresh-center-bar">
+      <button class="btn-refresh" id="refreshBtn" onclick="pullDataFromSheet()">
+        <span class="icon">🔄</span> PULL LATEST BUGS FROM GOOGLE SHEET
+      </button>
+      <div style="font-size: 0.8rem; color: #8e9bb0;" id="timestampText">
+        Last Synced: Never (Click button above or page auto-fetches)
+      </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="statTotal" style="color: #38bdf8;">0</div>
+          <div class="stat-lbl">Total Bugs</div>
+        </div>
+        <div style="font-size: 1.5rem;">🐞</div>
+      </div>
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="statCritical" style="color: #f87171;">0</div>
+          <div class="stat-lbl">Critical / High</div>
+        </div>
+        <div style="font-size: 1.5rem;">🔥</div>
+      </div>
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="statActive" style="color: #fbbf24;">0</div>
+          <div class="stat-lbl">Active / Open</div>
+        </div>
+        <div style="font-size: 1.5rem;">⚡</div>
+      </div>
+      <div class="stat-card">
+        <div>
+          <div class="stat-val" id="statSolved" style="color: #34d399;">0</div>
+          <div class="stat-lbl">Solved / Closed</div>
+        </div>
+        <div style="font-size: 1.5rem;">✅</div>
+      </div>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="filters-bar">
+      <input type="text" class="search-input" id="searchInput" placeholder="Search by bug key, title, or details..." oninput="renderTable()">
+
+      <div class="platform-pills" id="platformPills">
+        <button class="pill-btn active" onclick="setPlatformFilter('All')">All Platforms</button>
+        <button class="pill-btn" onclick="setPlatformFilter('Android')">Android</button>
+        <button class="pill-btn" onclick="setPlatformFilter('iOS')">iOS</button>
+        <button class="pill-btn" onclick="setPlatformFilter('Backend')">Backend</button>
+        <button class="pill-btn" onclick="setPlatformFilter('Web')">Web</button>
+      </div>
+
+      <select class="select-filter" id="severityFilter" onchange="renderTable()">
+        <option value="All">All Severities</option>
+        <option value="Critical">Critical</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+      </select>
+    </div>
+
+    <!-- Bugs Table -->
+    <div class="table-container">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Bug ID</th>
+            <th>Issue Summary</th>
+            <th>Platform / Product</th>
+            <th>Environment</th>
+            <th>Severity</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Reporter</th>
+          </tr>
+        </thead>
+        <tbody id="bugsTableBody">
+          <tr>
+            <td colSpan="8" style="text-align: center; padding: 2.5rem; color: #8e9bb0;">
+              ⏳ Loading bugs from Google Sheet...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="detailModal" onclick="closeModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="bug-key" id="modalKey">BUG-0000</span>
+          <span class="badge badge-high" id="modalSeverity">High</span>
+        </div>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <h3 id="modalTitle" style="font-size: 1.15rem; margin-bottom: 1rem; color: #fff;"></h3>
+      <div style="background: #090d16; padding: 1rem; border-radius: 10px; border: 1px solid var(--card-border); margin-bottom: 1rem;">
+        <div style="font-size: 0.8rem; color: #8e9bb0; margin-bottom: 6px;">Description & Logs:</div>
+        <pre id="modalDesc" style="white-space: pre-wrap; font-size: 0.85rem; color: #cbd5e1;"></pre>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.85rem; color: #94a3b8;">
+        <div>Platform: <strong id="modalPlat" style="color: #fff;"></strong></div>
+        <div>Environment: <strong id="modalEnv" style="color: #fff;"></strong></div>
+        <div>Reporter: <strong id="modalReporter" style="color: #fff;"></strong></div>
+        <div>Version: <strong id="modalVer" style="color: #fff;"></strong></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GOOGLE_SHEET_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwIT4MqkJjnM7Y0EfXMWDkDY0ygStoExkVy0NrRi8nJxLIR2o6u2Zswznw6kP8NbvhG/exec';
+
+    let allBugs = [];
+    let activePlatform = 'All';
+
+    // Load from local storage cache initially if available
+    try {
+      const cached = localStorage.getItem('quin_simple_bugs');
+      if (cached) {
+        allBugs = JSON.parse(cached);
+        renderTable();
+      }
+    } catch(e) {}
+
+    // Pull data automatically on load
+    window.addEventListener('DOMContentLoaded', () => {
+      pullDataFromSheet();
+    });
+
+    async function pullDataFromSheet() {
+      const refreshBtn = document.getElementById('refreshBtn');
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      const timestampText = document.getElementById('timestampText');
+
+      refreshBtn.classList.add('spinning');
+      statusDot.className = 'status-dot syncing';
+      statusText.innerText = 'Syncing from Google Sheet...';
+
+      try {
+        const res = await fetch(GOOGLE_SHEET_WEBHOOK, { method: 'GET', redirect: 'follow' });
+        const text = await res.text();
+        const data = JSON.parse(text);
+
+        if (data && Array.isArray(data.bugs)) {
+          allBugs = data.bugs;
+          localStorage.setItem('quin_simple_bugs', JSON.stringify(allBugs));
+          renderTable();
+          statusText.innerText = `Live Synced (${allBugs.length} records)`;
+        } else {
+          statusText.innerText = 'Sync Warning (Using cache)';
+        }
+
+        statusDot.className = 'status-dot';
+        const now = new Date().toLocaleTimeString();
+        timestampText.innerText = `Last Synced: ${now} (Auto-pulled on refresh)`;
+      } catch (err) {
+        console.error('Fetch error:', err);
+        statusDot.className = 'status-dot';
+        statusText.innerText = 'Offline Mode (Local Cache)';
+        if (allBugs.length === 0) {
+          renderFallbackSample();
+        }
+      } finally {
+        refreshBtn.classList.remove('spinning');
+      }
+    }
+
+    function setPlatformFilter(plat) {
+      activePlatform = plat;
+      const pills = document.querySelectorAll('.pill-btn');
+      pills.forEach(p => {
+        p.classList.toggle('active', p.innerText.includes(plat));
+      });
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('bugsTableBody');
+      const search = document.getElementById('searchInput').value.toLowerCase().trim();
+      const severity = document.getElementById('severityFilter').value;
+
+      const filtered = allBugs.filter(b => {
+        if (b.is_deleted === 1) return false;
+        if (activePlatform !== 'All' && String(b.platform).toLowerCase() !== activePlatform.toLowerCase()) return false;
+        if (severity !== 'All' && String(b.severity).toLowerCase() !== severity.toLowerCase()) return false;
+        if (search) {
+          const kMatch = String(b.bug_key || '').toLowerCase().includes(search);
+          const tMatch = String(b.title || '').toLowerCase().includes(search);
+          const dMatch = String(b.description || '').toLowerCase().includes(search);
+          if (!kMatch && !tMatch && !dMatch) return false;
+        }
+        return true;
+      });
+
+      // Update Summary Stats
+      document.getElementById('statTotal').innerText = allBugs.filter(b => b.is_deleted !== 1).length;
+      document.getElementById('statCritical').innerText = allBugs.filter(b => b.is_deleted !== 1 && ['critical', 'high'].includes(String(b.severity).toLowerCase())).length;
+      document.getElementById('statActive').innerText = allBugs.filter(b => b.is_deleted !== 1 && ['active', 'open'].includes(String(b.status).toLowerCase())).length;
+      document.getElementById('statSolved').innerText = allBugs.filter(b => b.is_deleted !== 1 && ['solved', 'closed', 'approved'].includes(String(b.status).toLowerCase())).length;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colSpan="8" style="text-align: center; padding: 2.5rem; color: #8e9bb0;">
+              No matching bugs found. Click <strong>PULL LATEST BUGS FROM GOOGLE SHEET</strong> above to refresh.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(b => {
+        const sev = String(b.severity || 'Medium').toLowerCase();
+        const env = String(b.environment || 'Prod');
+        return `
+          <tr style="cursor: pointer;" onclick="openModal(${b.id})">
+            <td><span class="bug-key">${b.bug_key || 'BUG-000'}</span></td>
+            <td>
+              <strong style="color: #f0f4f8;">${escapeHtml(b.title || 'Untitled Issue')}</strong>
+            </td>
+            <td>${escapeHtml(b.platform || 'Android')} (${escapeHtml(b.product || 'Quin Within')})</td>
+            <td><span class="env-tag ${env.toLowerCase()}">${env}</span></td>
+            <td><span class="badge badge-${sev}">${b.severity || 'Medium'}</span></td>
+            <td>${escapeHtml(b.category || 'Functional')}</td>
+            <td><span style="color: #60a5fa; font-weight: 600;">${escapeHtml(b.status || 'Active')}</span></td>
+            <td>${escapeHtml(b.reporter || 'QA')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openModal(id) {
+      const bug = allBugs.find(b => b.id == id);
+      if (!bug) return;
+
+      document.getElementById('modalKey').innerText = bug.bug_key || 'BUG-000';
+      document.getElementById('modalTitle').innerText = bug.title || 'Untitled Bug';
+      document.getElementById('modalDesc').innerText = bug.description || 'No additional description provided.';
+      document.getElementById('modalPlat').innerText = bug.platform || 'Android';
+      document.getElementById('modalEnv').innerText = bug.environment || 'Prod';
+      document.getElementById('modalReporter').innerText = bug.reporter || 'QA Tester';
+      document.getElementById('modalVer').innerText = `${bug.version || 'v1.0.0'} ${bug.build_number ? '(Build #' + bug.build_number + ')' : ''}`;
+      
+      const sevBadge = document.getElementById('modalSeverity');
+      const sev = String(bug.severity || 'Medium').toLowerCase();
+      sevBadge.className = `badge badge-${sev}`;
+      sevBadge.innerText = bug.severity || 'Medium';
+
+      document.getElementById('detailModal').classList.add('active');
+    }
+
+    function closeModal(e) {
+      if (!e || e.target.id === 'detailModal' || e.target.classList.contains('close-btn')) {
+        document.getElementById('detailModal').classList.remove('active');
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderFallbackSample() {
+      allBugs = [
+        { id: 1, bug_key: 'DCAND-0001', title: 'Get Started sliding animation too slow in comparison to design', platform: 'Android', product: 'Quin Within', environment: 'Prod', severity: 'Low', category: 'UI / UX', status: 'Active', reporter: 'admin', description: 'get Started sliding animation too slow in comparison to design' }
+      ];
+      renderTable();
+    }
+  </script>
+
+</body>
+</html>
