@@ -197,6 +197,12 @@
 
     /* Badges */
     .bug-key { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 0.25rem 0.55rem; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.25); display: inline-block; }
+    .platform-pill { display: inline-flex; align-items: center; justify-content: center; padding: 0.22rem 0.6rem; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.73rem; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; user-select: none; }
+    .platform-pill-android { background: rgba(16, 185, 129, 0.18) !important; color: #34d399 !important; border: 1px solid rgba(16, 185, 129, 0.4) !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+    .platform-pill-ios { background: rgba(56, 189, 248, 0.18) !important; color: #38bdf8 !important; border: 1px solid rgba(56, 189, 248, 0.4) !important; box-shadow: 0 0 10px rgba(56, 189, 248, 0.2); }
+    .platform-pill-web { background: rgba(168, 85, 247, 0.18) !important; color: #c084fc !important; border: 1px solid rgba(168, 85, 247, 0.4) !important; box-shadow: 0 0 10px rgba(168, 85, 247, 0.2); }
+    .platform-pill-backend { background: rgba(245, 158, 11, 0.18) !important; color: #fbbf24 !important; border: 1px solid rgba(245, 158, 11, 0.4) !important; box-shadow: 0 0 10px rgba(245, 158, 11, 0.2); }
+    .platform-pill-other { background: rgba(6, 182, 212, 0.18) !important; color: #22d3ee !important; border: 1px solid rgba(6, 182, 212, 0.4) !important; }
     .badge { display: inline-flex; align-items: center; gap: 4px; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
     .badge-critical { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
     .badge-high { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
@@ -301,6 +307,7 @@
       <table class="table">
         <thead>
           <tr>
+            <th>PLATFORM</th>
             <th>Bug ID</th>
             <th>Issue Summary</th>
             <th>Platform / Product</th>
@@ -313,7 +320,7 @@
         </thead>
         <tbody id="bugsTableBody">
           <tr>
-            <td colSpan="8" style="text-align: center; padding: 2.5rem; color: #8e9bb0;">
+            <td colSpan="9" style="text-align: center; padding: 2.5rem; color: #8e9bb0;">
               ⏳ Loading bugs from Google Sheet...
             </td>
           </tr>
@@ -327,6 +334,7 @@
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="modalPlatBadge"></span>
           <span class="bug-key" id="modalKey">BUG-0000</span>
           <span class="badge badge-high" id="modalSeverity">High</span>
         </div>
@@ -405,6 +413,65 @@
       }
     }
 
+    function getPlatformBadge(bug) {
+      if (!bug) return { text: 'aND', fullName: 'Android', className: 'platform-pill platform-pill-android', styleStr: '' };
+      let p = (bug.platform || '').trim();
+      const keyUpper = (bug.bug_key || '').toUpperCase();
+      const titleUpper = (bug.title || '').toUpperCase();
+
+      if (!p || p === 'All Platforms' || p === 'All') {
+        if (keyUpper.startsWith('AND') || titleUpper.startsWith('AND') || titleUpper.includes('ANDROID')) {
+          p = 'Android';
+        } else if (keyUpper.startsWith('IOS') || titleUpper.startsWith('IOS') || titleUpper.includes('IOS')) {
+          p = 'iOS';
+        } else if (keyUpper.startsWith('WEB') || titleUpper.startsWith('WEB') || titleUpper.includes('WEB')) {
+          p = 'Web';
+        } else if (keyUpper.startsWith('BEND') || titleUpper.startsWith('BEND') || titleUpper.includes('BACKEND')) {
+          p = 'Backend';
+        } else {
+          p = 'Android';
+        }
+      }
+
+      const pLower = p.toLowerCase();
+      if (pLower.includes('android') || pLower === 'and') {
+        return {
+          text: 'aND',
+          fullName: 'Android',
+          className: 'platform-pill platform-pill-android',
+          styleStr: 'background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);'
+        };
+      } else if (pLower.includes('ios')) {
+        return {
+          text: 'iOS',
+          fullName: 'iOS',
+          className: 'platform-pill platform-pill-ios',
+          styleStr: 'background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);'
+        };
+      } else if (pLower.includes('web')) {
+        return {
+          text: 'WEB',
+          fullName: 'Web',
+          className: 'platform-pill platform-pill-web',
+          styleStr: 'background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); box-shadow: 0 0 8px rgba(168, 85, 247, 0.2);'
+        };
+      } else if (pLower.includes('backend') || pLower.includes('bend') || pLower.includes('api')) {
+        return {
+          text: 'bEND',
+          fullName: 'Backend',
+          className: 'platform-pill platform-pill-backend',
+          styleStr: 'background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);'
+        };
+      } else {
+        return {
+          text: p.substring(0, 4).toUpperCase(),
+          fullName: p,
+          className: 'platform-pill platform-pill-other',
+          styleStr: 'background: rgba(6, 182, 212, 0.18); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.4);'
+        };
+      }
+    }
+
     function setPlatformFilter(plat) {
       activePlatform = plat;
       const pills = document.querySelectorAll('.pill-btn');
@@ -441,7 +508,7 @@
       if (filtered.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colSpan="8" style="text-align: center; padding: 2.5rem; color: #8e9bb0;">
+            <td colSpan="9" style="text-align: center; padding: 2.5rem; color: #8e9bb0;">
               No matching bugs found. Click <strong>PULL LATEST BUGS FROM GOOGLE SHEET</strong> above to refresh.
             </td>
           </tr>
@@ -452,8 +519,14 @@
       tbody.innerHTML = filtered.map(b => {
         const sev = String(b.severity || 'Medium').toLowerCase();
         const env = String(b.environment || 'Prod');
+        const pBadge = getPlatformBadge(b);
         return `
           <tr style="cursor: pointer;" onclick="openModal(${b.id})">
+            <td>
+              <span class="${pBadge.className}" style="${pBadge.styleStr}" title="Platform: ${pBadge.fullName}">
+                ${pBadge.text}
+              </span>
+            </td>
             <td><span class="bug-key">${b.bug_key || 'BUG-000'}</span></td>
             <td>
               <strong style="color: #f0f4f8;">${escapeHtml(b.title || 'Untitled Issue')}</strong>
@@ -472,6 +545,14 @@
     function openModal(id) {
       const bug = allBugs.find(b => b.id == id);
       if (!bug) return;
+
+      const pBadge = getPlatformBadge(bug);
+      const modalPlatBadge = document.getElementById('modalPlatBadge');
+      if (modalPlatBadge) {
+        modalPlatBadge.className = pBadge.className;
+        modalPlatBadge.setAttribute('style', pBadge.styleStr + ' font-size: 0.82rem; padding: 0.25rem 0.65rem;');
+        modalPlatBadge.innerText = pBadge.text;
+      }
 
       document.getElementById('modalKey').innerText = bug.bug_key || 'BUG-000';
       document.getElementById('modalTitle').innerText = bug.title || 'Untitled Bug';
