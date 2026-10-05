@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   
   <style>
     :root {
@@ -290,9 +291,14 @@
 
     <!-- CENTER PULL REFRESH BAR -->
     <div class="refresh-center-bar">
-      <button class="btn-refresh" id="refreshBtn" onclick="pullDataFromSheet()">
-        <span class="icon">🔄</span> REFRESH LATEST BUGS FROM GOOGLE SHEET
-      </button>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
+        <button class="btn-refresh" id="refreshBtn" onclick="pullDataFromSheet()">
+          <span class="icon">🔄</span> REFRESH LATEST BUGS FROM GOOGLE SHEET
+        </button>
+        <button class="btn-refresh" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);" onclick="exportToExcel()">
+          <span>📊</span> DUMP ALL DATA TO EXCEL (.XLSX)
+        </button>
+      </div>
       <div style="font-size: 0.82rem; color: #8e9bb0;" id="timestampText">
         Click button to fetch latest bugs or inspect preview below
       </div>
@@ -341,6 +347,20 @@
         <button class="pill-btn" onclick="setPlatformFilter('Backend')">Backend</button>
         <button class="pill-btn" onclick="setPlatformFilter('Web')">Web</button>
       </div>
+
+      <select class="select-filter" id="productFilter" onchange="renderTable()">
+        <option value="All">All Products</option>
+        <option value="Quin Within">Quin Within</option>
+        <option value="Quin Fly">Quin Fly</option>
+        <option value="Performance DC">Performance DC</option>
+        <option value="Performance App">Performance App</option>
+        <option value="Watch (All)">⌚ Watch (All Apps)</option>
+        <option value="Watch - Quin">⌚ Watch - Quin</option>
+        <option value="Watch - Fly">⌚ Watch - Fly</option>
+        <option value="Watch - Performance DC">⌚ Watch - Performance DC</option>
+        <option value="Quin Web Portal">Quin Web Portal</option>
+        <option value="APIs & Services">APIs & Services</option>
+      </select>
 
       <select class="select-filter" id="severityFilter" onchange="renderTable()">
         <option value="All">All Severities</option>
@@ -564,11 +584,22 @@
       const tbody = document.getElementById('bugsTableBody');
       const search = document.getElementById('searchInput').value.toLowerCase().trim();
       const severity = document.getElementById('severityFilter').value;
+      const prodFilter = document.getElementById('productFilter') ? document.getElementById('productFilter').value : 'All';
 
       const filtered = allBugs.filter(b => {
         if (b.is_deleted === 1) return false;
         if (activePlatform !== 'All' && String(b.platform).toLowerCase() !== activePlatform.toLowerCase()) return false;
         if (severity !== 'All' && String(b.severity).toLowerCase() !== severity.toLowerCase()) return false;
+        if (prodFilter !== 'All') {
+          if (prodFilter === 'Watch (All)') {
+            const pLower = String(b.product || '').toLowerCase();
+            const tLower = String(b.title || '').toLowerCase();
+            const dLower = String(b.device_model || '').toLowerCase();
+            if (!pLower.includes('watch') && !tLower.includes('watch') && !dLower.includes('watch')) return false;
+          } else if (String(b.product || 'Quin Within').toLowerCase() !== prodFilter.toLowerCase()) {
+            return false;
+          }
+        }
         if (search) {
           const kMatch = String(b.bug_key || '').toLowerCase().includes(search);
           const tMatch = String(b.title || '').toLowerCase().includes(search);
@@ -744,6 +775,22 @@ Developer / QA Resolution System`;
 
     function escapeHtml(str) {
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function exportToExcel() {
+      try {
+        if (typeof XLSX === 'undefined') {
+          alert('Spreadsheet library is loading. Please try again.');
+          return;
+        }
+        const wb = XLSX.utils.book_new();
+        const activeBugs = allBugs.filter(b => b.is_deleted !== 1);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(activeBugs.length ? activeBugs : [{ message: 'No bugs' }]), 'Bugs');
+        XLSX.writeFile(wb, `Quin_QA_Resolved_Bug_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      } catch (err) {
+        console.error('Excel Export Error:', err);
+        alert('Failed to export Excel: ' + err.message);
+      }
     }
 
     function renderFallbackSample() {
