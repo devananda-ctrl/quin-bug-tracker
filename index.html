@@ -369,6 +369,18 @@
         <option value="Medium">Medium</option>
         <option value="Low">Low</option>
       </select>
+
+      <select class="select-filter" id="sortFilter" onchange="handleSortSelect(this.value)">
+        <option value="id-desc">Sort: Newest First</option>
+        <option value="id-asc">Sort: Oldest First</option>
+        <option value="bug_key-asc">Sort: Bug ID (A-Z)</option>
+        <option value="bug_key-desc">Sort: Bug ID (Z-A)</option>
+        <option value="severity-desc">Sort: Severity (High-Low)</option>
+        <option value="severity-asc">Sort: Severity (Low-High)</option>
+        <option value="product-asc">Sort: Product (A-Z)</option>
+        <option value="title-asc">Sort: Title (A-Z)</option>
+        <option value="status-asc">Sort: Status</option>
+      </select>
     </div>
 
     <!-- Bugs Table -->
@@ -376,12 +388,12 @@
       <table class="table">
         <thead>
           <tr>
-            <th>PLATFORM</th>
-            <th>Bug ID</th>
-            <th>Issue Summary</th>
-            <th>Platform / Product</th>
-            <th>Severity</th>
-            <th>Status</th>
+            <th onclick="handleSort('platform')" style="cursor: pointer; user-select: none;" id="th-platform">PLATFORM ↕</th>
+            <th onclick="handleSort('bug_key')" style="cursor: pointer; user-select: none;" id="th-bug_key">Bug ID ↕</th>
+            <th onclick="handleSort('title')" style="cursor: pointer; user-select: none;" id="th-title">Issue Summary ↕</th>
+            <th onclick="handleSort('product')" style="cursor: pointer; user-select: none;" id="th-product">Platform / Product ↕</th>
+            <th onclick="handleSort('severity')" style="cursor: pointer; user-select: none;" id="th-severity">Severity ↕</th>
+            <th onclick="handleSort('status')" style="cursor: pointer; user-select: none;" id="th-status">Status ↕</th>
             <th style="text-align: center;">ACTIONS / DRAFT MAIL</th>
           </tr>
         </thead>
@@ -453,12 +465,76 @@
     let allBugs = [];
     let activePlatform = 'All';
     let selectedBugForMail = null;
+    let sortField = 'id';
+    let sortDirection = 'desc';
+
+    function handleSort(field) {
+      if (sortField === field) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortField = field;
+        sortDirection = (field === 'severity' || field === 'id') ? 'desc' : 'asc';
+      }
+      updateSortHeaders();
+      const sortSelect = document.getElementById('sortFilter');
+      if (sortSelect) sortSelect.value = `${sortField}-${sortDirection}`;
+      renderTable();
+    }
+
+    function handleSortSelect(val) {
+      if (!val) return;
+      const [f, d] = val.split('-');
+      sortField = f;
+      sortDirection = d;
+      updateSortHeaders();
+      renderTable();
+    }
+
+    function updateSortHeaders() {
+      const cols = ['platform', 'bug_key', 'title', 'product', 'severity', 'status'];
+      cols.forEach(c => {
+        const th = document.getElementById(`th-${c}`);
+        if (!th) return;
+        const colTitle = c === 'bug_key' ? 'Bug ID' : c === 'product' ? 'Platform / Product' : c.toUpperCase();
+        if (sortField === c) {
+          th.innerText = `${colTitle} ${sortDirection === 'asc' ? '▲' : '▼'}`;
+        } else {
+          th.innerText = `${colTitle} ↕`;
+        }
+      });
+    }
+
+    function updateProductDropdown() {
+      const select = document.getElementById('productFilter');
+      if (!select) return;
+      const currentVal = select.value;
+
+      const baseProducts = [
+        'Quin Within', 'Quin Fly', 'Performance DC', 'Performance App',
+        'Watch - Quin', 'Watch - Fly', 'Watch - Performance DC',
+        'Quin Web Portal', 'APIs & Services'
+      ];
+
+      const bugProducts = allBugs.map(b => String(b.product || '').trim()).filter(Boolean);
+      const allUnique = Array.from(new Set([...baseProducts, ...bugProducts])).sort((a,b) => a.localeCompare(b));
+
+      let html = `<option value="All">All Products</option>`;
+      html += `<option value="Watch (All)">⌚ Watch (All Apps)</option>`;
+      allUnique.forEach(name => {
+        const isWatch = name.toLowerCase().includes('watch');
+        html += `<option value="${escapeHtml(name)}">${isWatch ? '⌚ ' : ''}${escapeHtml(name)}</option>`;
+      });
+
+      select.innerHTML = html;
+      select.value = currentVal;
+    }
 
     // Load from local storage cache initially if available
     try {
       const cached = localStorage.getItem('quin_simple_bugs');
       if (cached) {
         allBugs = JSON.parse(cached);
+        updateProductDropdown();
         renderTable();
       }
     } catch(e) {}
@@ -489,8 +565,14 @@
         const data = JSON.parse(text);
 
         if (data && Array.isArray(data.bugs)) {
-          allBugs = data.bugs;
+          allBugs = data.bugs.map(b => ({
+            ...b,
+            product: String(b.product || '').trim(),
+            platform: String(b.platform || '').trim(),
+            environment: String(b.environment || 'Prod').trim()
+          }));
           localStorage.setItem('quin_simple_bugs', JSON.stringify(allBugs));
+          updateProductDropdown();
           renderTable();
           statusText.innerText = `Live Synced (${allBugs.length} records)`;
         } else {
@@ -514,7 +596,7 @@
 
     function getPlatformBadge(bug) {
       if (!bug) return { text: 'aND', fullName: 'Android', className: 'platform-pill platform-pill-android', styleStr: '' };
-      let p = (bug.platform || '').trim();
+      let p = String(bug.platform || '').trim();
       const keyUpper = (bug.bug_key || '').toUpperCase();
       const titleUpper = (bug.title || '').toUpperCase();
 
@@ -584,20 +666,25 @@
       const tbody = document.getElementById('bugsTableBody');
       const search = document.getElementById('searchInput').value.toLowerCase().trim();
       const severity = document.getElementById('severityFilter').value;
-      const prodFilter = document.getElementById('productFilter') ? document.getElementById('productFilter').value : 'All';
+      const prodFilter = document.getElementById('productFilter') ? document.getElementById('productFilter').value.trim() : 'All';
 
       const filtered = allBugs.filter(b => {
         if (b.is_deleted === 1) return false;
-        if (activePlatform !== 'All' && String(b.platform).toLowerCase() !== activePlatform.toLowerCase()) return false;
-        if (severity !== 'All' && String(b.severity).toLowerCase() !== severity.toLowerCase()) return false;
+        if (activePlatform !== 'All' && String(b.platform || '').trim().toLowerCase() !== activePlatform.trim().toLowerCase()) return false;
+        if (severity !== 'All' && String(b.severity || '').trim().toLowerCase() !== severity.trim().toLowerCase()) return false;
         if (prodFilter !== 'All') {
-          if (prodFilter === 'Watch (All)') {
-            const pLower = String(b.product || '').toLowerCase();
-            const tLower = String(b.title || '').toLowerCase();
-            const dLower = String(b.device_model || '').toLowerCase();
+          const pLower = String(b.product || '').trim().toLowerCase();
+          const fLower = String(prodFilter).trim().toLowerCase();
+          const tLower = String(b.title || '').trim().toLowerCase();
+          const dLower = String(b.device_model || '').trim().toLowerCase();
+
+          if (fLower === 'watch (all)' || fLower === 'all watch apps') {
             if (!pLower.includes('watch') && !tLower.includes('watch') && !dLower.includes('watch')) return false;
-          } else if (String(b.product || 'Quin Within').toLowerCase() !== prodFilter.toLowerCase()) {
-            return false;
+          } else {
+            const pNorm = pLower.replace(/[^a-z0-9]/g, '');
+            const fNorm = fLower.replace(/[^a-z0-9]/g, '');
+            const isPerfMatch = (pNorm.includes('perf') && pNorm.includes('app')) && (fNorm.includes('perf') && fNorm.includes('app'));
+            if (pLower !== fLower && pNorm !== fNorm && !isPerfMatch) return false;
           }
         }
         if (search) {
@@ -609,13 +696,42 @@
         return true;
       });
 
+      // Sorted Bugs
+      const sorted = [...filtered].sort((a, b) => {
+        let valA = a[sortField];
+        let valB = b[sortField];
+
+        if (sortField === 'severity') {
+          const weights = { critical: 4, high: 3, medium: 2, low: 1 };
+          valA = weights[String(valA || '').toLowerCase()] || 0;
+          valB = weights[String(valB || '').toLowerCase()] || 0;
+          return sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+
+        if (sortField === 'id') {
+          valA = Number(valA) || 0;
+          valB = Number(valB) || 0;
+          return sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+
+        if (sortField === 'bug_key') {
+          valA = String(valA || '');
+          valB = String(valB || '');
+          return sortDirection === 'asc' ? valA.localeCompare(valB, undefined, { numeric: true }) : valB.localeCompare(valA, undefined, { numeric: true });
+        }
+
+        valA = String(valA || '').toLowerCase();
+        valB = String(valB || '').toLowerCase();
+        return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      });
+
       // Update Summary Stats
       document.getElementById('statTotal').innerText = allBugs.filter(b => b.is_deleted !== 1).length;
       document.getElementById('statCritical').innerText = allBugs.filter(b => b.is_deleted !== 1 && ['critical', 'high'].includes(String(b.severity).toLowerCase())).length;
       document.getElementById('statActive').innerText = allBugs.filter(b => b.is_deleted !== 1 && ['active', 'open'].includes(String(b.status).toLowerCase())).length;
       document.getElementById('statSolved').innerText = allBugs.filter(b => b.is_deleted !== 1 && ['solved', 'closed', 'approved'].includes(String(b.status).toLowerCase())).length;
 
-      if (filtered.length === 0) {
+      if (sorted.length === 0) {
         tbody.innerHTML = `
           <tr>
             <td colSpan="7" style="text-align: center; padding: 2.5rem; color: #8e9bb0;">
@@ -626,7 +742,7 @@
         return;
       }
 
-      tbody.innerHTML = filtered.map(b => {
+      tbody.innerHTML = sorted.map(b => {
         const sev = String(b.severity || 'Medium').toLowerCase();
         const pBadge = getPlatformBadge(b);
         return `
